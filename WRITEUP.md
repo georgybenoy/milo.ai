@@ -81,6 +81,7 @@ The agent provides two tightly scoped tools, with clear routing rules encoded di
 ## 6. AI Tools Used
 
 In accordance with transparency requirements, the following AI tools were utilized during the development of Milo:
-- **Google Antigravity**: Primary autonomous development agent used for architecture design, code generation, refactoring, and test execution.
-- **Gemini 2.0 Flash**: Large language model accessed via Google GenAI SDK for function calling, intent classification, and natural-language synthesis.
+- **Google Antigravity**: Primary autonomous development agent used for codebase implementation, full-stack scaffolding, refactoring, and automated test execution.
+- **Gemini (via Google GenAI SDK)**: Large language model powering the runtime application for intent parsing, native function calling, and natural-language synthesis.
+- **ChatGPT & Claude**: Utilized during the preparatory phases for architectural planning, requirements decomposition, and system prompt engineering/generation.
 
