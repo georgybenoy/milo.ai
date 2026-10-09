@@ -15,9 +15,9 @@ Ask natural-language questions about orders, revenue, and customer spending with
 [![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
 [![Gemini](https://img.shields.io/badge/Google_Gemini-2.29+-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
 [![Tests](https://img.shields.io/badge/Tests-64%20Passing-53D6A0?style=for-the-badge&logo=pytest&logoColor=white)](#-running-tests)
-[![Deployment](https://img.shields.io/badge/Render-Live-46E3B7?style=for-the-badge&logo=render&logoColor=black)](https://milo-ai-tlx1.onrender.com)
+[![Deployment](https://img.shields.io/badge/Render-Live-46E3B7?style=for-the-badge&logo=render&logoColor=black)](https://milo-ai-ttx1.onrender.com/)
 
-[**💻 Localhost Setup**](#-localhost-setup--running-guide) • [**🌐 Live Application**](https://milo-ai-tlx1.onrender.com) • [**📁 GitHub Repository**](https://github.com/georgybenoy/milo.ai) • [**📝 Technical Writeup**](./WRITEUP.md)
+[**💻 Localhost Setup**](#-localhost-setup--running-guide) • [**🌐 Live Application**](https://milo-ai-ttx1.onrender.com/) • [**📁 GitHub Repository**](https://github.com/georgybenoy/milo.ai) • [**📝 Technical Writeup**](./WRITEUP.md)
 
 </div>
 
@@ -484,4 +484,5 @@ Invoke-RestMethod -Uri "http://localhost:8000/api/dataset"
 
 ## 🔗 Repository & Live Links
 
-- **Live Deployment URL**: [https://milo-ai-tlx1.onrender.com](https://milo-ai-tlx1.onrender.com)
+- **Live Deployment URL**: [https://milo-ai-ttx1.onrender.com/](https://milo-ai-ttx1.onrender.com/)
+- **GitHub Repository**: [https://github.com/georgybenoy/milo.ai](https://github.com/georgybenoy/milo.ai)
