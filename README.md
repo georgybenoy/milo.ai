@@ -1,6 +1,6 @@
 # Milo — Your orders, answered.
 
-Milo is an AI-powered order intelligence assistant for ecommerce operations. Users ask natural-language questions about an order dataset (`orders.csv`), and Milo uses a native Gemini tool-calling loop coupled with deterministic Python functions to deliver accurate, mathematical facts—never hallucinations or fabricated data.
+Milo is an AI-powered order intelligence assistant for ecommerce operations. Users ask natural-language questions about an order dataset (`orders.csv`), and Milo uses a native Gemini function-calling loop coupled with deterministic Python functions to deliver accurate, mathematical facts—never hallucinations or fabricated data.
 
 ---
 
@@ -13,19 +13,23 @@ Milo is an AI-powered order intelligence assistant for ecommerce operations. Use
 [ FastAPI Backend ]
          │
          ▼
-[ Milo Agent (google-genai SDK) ] ◄───► [ Gemini 2.0 Flash ]
-         │                                (Decides function call)
+[ Milo Agent (google-genai SDK) ] ◄───► [ Gemini Model ]
+         │                                (Decides tool call & arguments)
          ▼ (Dispatches deterministic execution)
 [ Python Tools (pandas) ]
    ├── lookup_order()
    └── analyze_orders()
          │
          ▼ (Structured JSON result)
-[ Gemini 2.0 Flash ] ──► Formulates concise natural-language response
+[ Gemini Model ] ──► Formulates concise natural-language response
          │
          ▼ (HTTP 200 { reply, error: null })
 [ React Glassmorphism UI ]
 ```
+
+1. **Deterministic Processing**: The LLM is strictly prohibited from doing arithmetic or inventing records. Python pandas code performs all summing, filtering, counting, and ranking.
+2. **Thought Signature & Protocol Resilience**: Uses the latest `google-genai` SDK (v2.29+) to ensure multi-turn conversation tokens and reasoning states (`thought_signature`) are preserved.
+3. **Unified Single-Service Serving**: The production bundle of the React SPA is served directly by FastAPI and Uvicorn on a single port with seamless client-side SPA fallback.
 
 ---
 
@@ -35,19 +39,31 @@ Milo is an AI-powered order intelligence assistant for ecommerce operations. Use
 - **Revenue Analytics**: Deterministically calculate exact INR totals across categories, date ranges, cities, or statuses.
 - **Order Metrics & Counts**: Count order volume by status (e.g. `Cancelled`, `Delivered`, `Returned`) or date window.
 - **Customer Insights**: Aggregate transaction totals to rank top spenders with automatic tie handling.
-- **Resilient Glassmorphism UI**: Dark purple/lavender glassmorphism theme (`#100B18`), responsive from 320px mobile to 1440px desktop, keyboard accessible, with zero inert controls.
+- **Safe Guardrails**: Missing orders (`ORD-9999`) return structured not-found responses without hallucination; mutation requests ("refund my order") are safely declined.
+- **Glassmorphism UI**: Dark purple/lavender glassmorphism theme (`#100B18`), responsive from 320px mobile to 1440px desktop, keyboard accessible, with zero inert controls and custom tab favicon branding.
+
+### Benchmark Queries & Live Responses
+
+| Category | User Question | Verified Response | Tool Called |
+|---|---|---|---|
+| **Order Lookup** | *"What is the status of order ORD-1025?"* | *"The status of order ORD-1025 is **delivered**."* | `lookup_order(order_id="ORD-1025")` |
+| **Status Count** | *"How many orders were cancelled?"* | *"There are **7** cancelled orders in the dataset."* | `analyze_orders(operation="count_orders", status="Cancelled")` |
+| **Category Revenue** | *"What was the total revenue from Electronics in August?"* | *"The total revenue from Electronics for August 2026 was **₹27,189** (2026-08-01 to 2026-08-31)."* | `analyze_orders(operation="sum_revenue", category="Electronics", start_date="2026-08-01", end_date="2026-08-31")` |
+| **Customer Insights** | *"Which customer has spent the most?"* | *"The customer who has spent the most across all recorded orders is **Rohan Das** with a total spend of **₹1,12,282** across 7 orders."* | `analyze_orders(operation="top_customer")` |
+| **Missing Order** | *"What is the status of order ORD-9999?"* | *"Order ID ORD-9999 was not found in the dataset."* | `lookup_order(order_id="ORD-9999")` |
+| **Out-of-Scope** | *"Please refund my order"* | Explains that Milo is a read-only analytics assistant and cannot mutate data or issue refunds. | None (Declined safely) |
 
 ---
 
-## Stack
+## Tech Stack
 
 | Layer | Technologies |
 |---|---|
-| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS v4, Lucide React, React-Markdown |
-| **Backend** | Python 3.10+, FastAPI, Pydantic v2, Pandas, Uvicorn, Python-Dotenv |
-| **AI / LLM** | Google Gemini (`gemini-2.0-flash`) via the official `google-genai` SDK |
-| **Testing** | Pytest, Pytest-Asyncio, HTTPX, FastAPI TestClient |
-| **Deployment** | Dockerless single-service deployment via Render (`render.yaml`) |
+| **Frontend** | React 19, TypeScript, Vite 8.3+, Tailwind CSS v4, Lucide React, React-Markdown |
+| **Backend** | Python 3.10+, FastAPI 0.115+, Pydantic v2.14+, Pandas 2.2+, Uvicorn, Python-Dotenv |
+| **AI / LLM** | Google Gemini Developer API via the official `google-genai` SDK (v2.29+) |
+| **Testing** | Pytest, Pytest-Asyncio, HTTPX, FastAPI TestClient (64 passing tests) |
+| **Deployment** | Single-service deployment via Render (`render.yaml`) |
 
 ---
 
@@ -58,38 +74,41 @@ milo/
 ├── backend/
 │   ├── app/
 │   │   ├── __init__.py
-│   │   ├── agent.py          # Gemini function calling loop & custom exceptions
+│   │   ├── agent.py          # Gemini function-calling loop, bounded turns & custom exceptions
 │   │   ├── config.py         # Environment variables & path resolution
 │   │   ├── data_loader.py    # CSV loading, validation & helper columns
-│   │   ├── main.py           # FastAPI routes, SPA serving & error handlers
-│   │   ├── schemas.py        # Pydantic models for chat, health, & dataset
+│   │   ├── main.py           # FastAPI routes, SPA serving & sanitized error handlers
+│   │   ├── schemas.py        # Pydantic models for chat, health, dataset, & tools
 │   │   └── tools.py          # Deterministic tools (lookup & analyze) & Gemini declarations
 │   ├── tests/
-│   │   ├── conftest.py       # Fixtures & path setups
+│   │   ├── conftest.py       # Test fixtures & dataset loading
 │   │   ├── test_agent.py     # Mocked Gemini agent loop & error mapping tests
-│   │   ├── test_api.py       # FastAPI endpoint & validation tests
+│   │   ├── test_api.py       # FastAPI endpoint, validation, & 4xx/5xx tests
 │   │   ├── test_data.py      # Schema integrity & DatasetError edge cases
-│   │   └── test_tools.py     # Independent pandas mathematical parity tests
+│   │   └── test_tools.py     # Mathematical parity & pandas aggregation tests
 │   ├── requirements.txt      # Pinned Python dependencies
 │   ├── run_live_qa.py        # Script for executing live QA against Gemini
-│   └── verify_gemini.py      # Minimal script to test model function calling & quota
+│   └── verify_gemini.py      # Minimal verification script for model function calling
 ├── frontend/
 │   ├── public/
-│   │   ├── milo-logo.png     # Product brand logo
+│   │   ├── favicon.ico       # Multi-resolution branded tab icon (16x16 to 256x256)
+│   │   ├── favicon-32x32.png # 32x32 crisp tab icon
+│   │   ├── favicon.png       # 256x256 high-resolution logo
+│   │   ├── milo-logo.png     # Official product brand logo
 │   │   └── wallpaper.webp    # Optimized misty mountain wallpaper
 │   ├── src/
 │   │   ├── api/
 │   │   │   └── client.ts     # Typed API client with 60s timeout & error mappings
 │   │   ├── components/
 │   │   │   ├── AppShell.tsx           # Glassmorphism window wrapper
-│   │   │   ├── ChatWindow.tsx         # Message list with smart auto-scroll
+│   │   │   ├── ChatWindow.tsx         # Message list with auto-scroll
 │   │   │   ├── ErrorMessage.tsx       # Accessible error banner with retry
 │   │   │   ├── FeatureCard.tsx        # Interactive capability cards
-│   │   │   ├── Header.tsx             # Gemini pill & live health indicator
-│   │   │   ├── LoadingIndicator.tsx   # "Analysing orders..." pulse indicator
-│   │   │   ├── MessageBubble.tsx      # Markdown bubble with tool badges
+│   │   │   ├── Header.tsx             # Gemini status pill & health indicator
+│   │   │   ├── LoadingIndicator.tsx   # Pulse indicator during tool execution
+│   │   │   ├── MessageBubble.tsx      # Markdown message bubble with tool badges
 │   │   │   ├── MessageComposer.tsx    # Multiline composer with 42px send button
-│   │   │   ├── Sidebar.tsx            # Glowing orb, New Chat, & dataset card
+│   │   │   ├── Sidebar.tsx            # Glowing orb, New Chat, & dataset metadata card
 │   │   │   ├── SuggestedQueryCard.tsx # Clickable query suggestion card
 │   │   │   └── WelcomeScreen.tsx      # Initial brand landing state
 │   │   ├── App.tsx           # State management & lifecycle polling
@@ -99,7 +118,7 @@ milo/
 │   ├── package.json          # Frontend dependencies
 │   └── vite.config.ts        # Vite config with dev proxy (/api -> :8000)
 ├── orders.csv                # Public 60-row dataset
-├── package.json              # Root convenience scripts (PowerShell-safe)
+├── package.json              # Root convenience scripts (Windows PowerShell-safe)
 ├── render.yaml               # Render single-service deployment blueprint
 ├── README.md                 # Project documentation
 └── WRITEUP.md                # Technical reflection & architecture writeup
@@ -151,6 +170,8 @@ npm run dev
 
 - Backend API: `http://localhost:8000`
 - Frontend UI (Vite dev server with `/api` proxy): `http://localhost:5173`
+
+*(The root `npm run dev` script automatically resolves your Windows `.venv` Python path).*
 
 ### Option B: Separate Terminals
 
@@ -257,14 +278,14 @@ backend/tests/test_tools.py::TestDispatchTool::test_dispatch_analyze PASSED [ 96
 backend/tests/test_tools.py::TestDispatchTool::test_dispatch_unknown_tool PASSED [ 98%]
 backend/tests/test_tools.py::TestDispatchTool::test_dispatch_invalid_args_type PASSED [100%]
 
-======================= 64 passed in 2.46s =======================
+======================= 64 passed in 2.49s =======================
 ```
 
 ---
 
 ## Metric Definitions
 
-1. **Revenue**: Defined as the sum of recorded `total_inr` across matching rows. Unless a status filter is explicitly specified (e.g., "delivered only"), revenue includes all recorded statuses (including cancelled or returned orders) in line with recorded ledger totals.
+1. **Revenue**: Defined as the sum of recorded `total_inr` across matching rows. Unless a status filter is explicitly specified (e.g. "delivered only"), revenue includes all recorded statuses (including cancelled or returned orders) in line with recorded ledger totals.
 2. **Order Count**: Counts the number of order transactions (rows), *not* the cumulative quantity of items sold.
 3. **Top Customer**: Grouped by `customer_name` and ranked by cumulative `total_inr`. Any ties for highest spend are reported.
 4. **Dates**: Date filters (`start_date`, `end_date`) are inclusive on both ends (`>=` start and `<=` end). When a user asks about "August", it resolves strictly to August 2026 (`2026-08-01` to `2026-08-31`) matching the dataset span.
@@ -276,7 +297,7 @@ backend/tests/test_tools.py::TestDispatchTool::test_dispatch_invalid_args_type P
 | Variable | Description | Default | Required in Production |
 |---|---|---|---|
 | `GEMINI_API_KEY` | Google Gemini Developer API key | `""` | Yes |
-| `GEMINI_MODEL` | Gemini model identifier | `gemini-2.0-flash` | No |
+| `GEMINI_MODEL` | Gemini model identifier | `gemini-flash-lite-latest` | No (defaults to active supported model) |
 | `APP_ENV` | Application environment (`development` or `production`) | `development` | Yes (`production`) |
 | `CSV_PATH` | Optional explicit path override for `orders.csv` | Relative `REPO_ROOT/orders.csv` | No |
 
@@ -284,10 +305,10 @@ backend/tests/test_tools.py::TestDispatchTool::test_dispatch_invalid_args_type P
 
 ## Render Deployment Steps
 
-Milo is pre-configured for seamless single-service deployment on Render using [`render.yaml`](./render.yaml).
+Milo is pre-configured for single-service deployment on Render using [`render.yaml`](./render.yaml).
 
 1. **Push Code to GitHub**:
-   Ensure all changes are committed and pushed to a public GitHub repository:
+   Ensure all changes are pushed to your public GitHub repository:
    ```powershell
    git remote add origin https://github.com/georgybenoy/milo.ai.git
    git branch -M main
@@ -296,27 +317,28 @@ Milo is pre-configured for seamless single-service deployment on Render using [`
 
 2. **Connect to Render**:
    - Navigate to [Render Dashboard](https://dashboard.render.com/).
-   - Click **New +** and select **Blueprint**.
-   - Connect your GitHub repository. Render will automatically parse `render.yaml`.
+   - Click **New +** and select **Blueprint** (or **Web Service**).
+   - Connect your GitHub repository (`georgybenoy/milo.ai`).
 
-3. **Configure Environment Variables**:
-   - In the service configuration prompt, provide your `GEMINI_API_KEY`.
-   - Confirm `GEMINI_MODEL` defaults to `gemini-2.0-flash` (or your preferred active model) and `APP_ENV` is set to `production`.
-
-4. **Deploy**:
-   - Click **Apply**.
-   - Render automatically runs the build command:
+3. **Configure Build & Start Commands (if manual)**:
+   - **Build Command**:
      ```bash
      pip install -r backend/requirements.txt && npm install --prefix frontend && npm run build --prefix frontend
      ```
-   - Render starts the application via:
+   - **Start Command**:
      ```bash
      uvicorn app.main:app --host 0.0.0.0 --port $PORT --app-dir backend
      ```
-   - Render monitors health via `/api/health`.
 
-5. **Verify Cold Start**:
-   - Free tier instances enter sleep mode after 15 minutes of inactivity. The initial cold request may take 30–50 seconds. Milo's frontend client incorporates an extended 60-second timeout to handle this gracefully.
+4. **Set Environment Variables in Render**:
+   In the **Environment** tab of your service settings, configure:
+   - `GEMINI_API_KEY`: *(Your Google AI Studio API key)*
+   - `GEMINI_MODEL`: `gemini-flash-lite-latest` (or `gemini-2.0-flash`)
+   - `APP_ENV`: `production`
+
+5. **Deploy & Health Check**:
+   - Render verifies health at `/api/health`.
+   - Free tier instances spin down after 15 minutes of inactivity; the initial cold request may take 30–50s. The frontend client includes an extended 60s timeout to handle this gracefully.
 
 ---
 
@@ -331,5 +353,4 @@ Milo is pre-configured for seamless single-service deployment on Render using [`
 ## Repository & Live Links
 
 - **GitHub Repository**: https://github.com/georgybenoy/milo.ai
-- **Live Deployment URL**: https://milo-torcue-ai.onrender.com *(replace with your active Render URL)*
-
+- **Live Deployment URL**: https://milo-ai-tlx1.onrender.com
