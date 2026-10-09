@@ -51,9 +51,10 @@ The agent provides two tightly scoped tools, with clear routing rules encoded di
 ## 3. Guardrails & Safety Engineering
 
 - **Strict Validation**: The data loader validates file existence, schema completeness (all 11 columns), absence of duplicates or nulls, valid calendar dates, positive quantities/prices, and mathematical consistency (`total_inr == quantity * unit_price_inr`). If corrupted, the app raises `DatasetError` and reports `data-not-ready` instead of treating it as empty.
-- **Bounded Tool Iterations**: The agent execution loop is strictly bounded by `MAX_TOOL_ITERATIONS = 5`. Runaway agent loops or repeated failed calls trigger `MiloIterationLimitError`.
-- **Truthful Error Surfacing**: When a tool fails or an argument is invalid, the structured error dictionary is returned back into the tool response part. The model is instructed to truthfully convey the error to the user rather than hallucinating success.
-- **Security & Secret Containment**: All error handlers catch internal exceptions and return sanitized messages, preventing stack trace or system path disclosure. API keys and file paths are never included in API responses.
+- **Deterministic Math**: The LLM is strictly prohibited from performing manual arithmetic or guessing totals. All statistics, currency calculations, date windowing, and rankings are computed by pure Python functions and passed back as immutable facts.
+- **Bounded Tool Iterations**: The agent execution loop is strictly bounded by `MAX_TOOL_ITERATIONS = 5`. Runaway agent loops or repeated failed calls trigger `MiloIterationLimitError` and yield safe fallback messaging.
+- **Missing-Result & Scope Handling**: When an order is not found (e.g. `ORD-9999`), tools return `{found: false, order: null}`, and the system prompt explicitly forbids inventing placeholder orders. For action-oriented requests outside of order intelligence (e.g. "refund my order", "cancel order"), Milo politely explains it is a read-only analytics assistant and cannot perform mutations.
+- **Security & Secret Containment**: All error handlers catch internal exceptions and return sanitized messages, preventing stack trace or system path disclosure. API keys, credentials, and filesystem paths are never serialized in API responses or committed to source control.
 
 ---
 
@@ -67,11 +68,13 @@ The agent provides two tightly scoped tools, with clear routing rules encoded di
 
 ## 5. Improvements with More Time
 
-1. **Server-Sent Events (SSE) Streaming**: Stream token chunks and display intermediate function execution steps in real-time.
-2. **Interactive Data Tables**: Render `list_orders` results in sortable, filterable client-side grid tables with CSV export.
-3. **Multi-Turn Chat History**: Persist session conversations in Redis or SQLite to support contextual follow-up questions.
-4. **Authentication & Multi-Tenant Datasets**: Add OAuth2/JWT auth and support uploading customer-specific CSV datasets.
-5. **Observability**: Integrate OpenTelemetry tracing to monitor LLM token consumption and tool dispatch latency.
+1. **Server-Sent Events (SSE) Streaming**: Stream token chunks to provide sub-second time-to-first-token feedback.
+2. **Tool-Step Display**: Visual collapsible pills in the UI displaying intermediate function calls, arguments, and return payloads.
+3. **Interactive Data Tables & Pagination**: Rich data tables for `list_orders` results featuring client-side sorting, column filtering, pagination, and CSV export.
+4. **Session Persistence**: Storing multi-turn conversation history in SQLite or Redis to support conversational context across turns.
+5. **Authentication & Multi-Tenancy**: User authentication (OAuth2 / JWT) and tenant isolation for organizations uploading proprietary order databases.
+6. **Observability & Monitoring**: OpenTelemetry tracing and structured logging to track token usage, latency percentiles, and provider error rates.
+7. **Live Gemini Integration Tests**: Automated CI/CD pipeline tests executing live tool-calling assertions against Gemini test environments to catch upstream model behavior shifts.
 
 ---
 
@@ -79,4 +82,5 @@ The agent provides two tightly scoped tools, with clear routing rules encoded di
 
 In accordance with transparency requirements, the following AI tools were utilized during the development of Milo:
 - **Google Antigravity**: Primary autonomous development agent used for architecture design, code generation, refactoring, and test execution.
-- **Gemini 2.0 Flash / Gemini 3.8 Flash**: LLM used for function calling, natural-language reasoning, and tool evaluation.
+- **Gemini 2.0 Flash**: Large language model accessed via Google GenAI SDK for function calling, intent classification, and natural-language synthesis.
+

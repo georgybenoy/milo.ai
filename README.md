@@ -282,15 +282,54 @@ backend/tests/test_tools.py::TestDispatchTool::test_dispatch_invalid_args_type P
 
 ---
 
-## Known Limitations
+## Render Deployment Steps
 
-- **Dataset Mutability**: The application is strictly read-only; it does not support modifying orders, creating refunds, or cancellations.
-- **Order Listing Cap**: The `list_orders` operation caps returned rows at 25 items to prevent blowing the LLM context window.
-- **Free Tier Cold Starts**: On Render's free tier, the backend web service spins down after inactivity; initial cold-start requests may take 30–50s.
+Milo is pre-configured for seamless single-service deployment on Render using [`render.yaml`](./render.yaml).
+
+1. **Push Code to GitHub**:
+   Ensure all changes are committed and pushed to a public GitHub repository:
+   ```powershell
+   git remote add origin https://github.com/<your-username>/<your-repo-name>.git
+   git branch -M main
+   git push -u origin main
+   ```
+
+2. **Connect to Render**:
+   - Navigate to [Render Dashboard](https://dashboard.render.com/).
+   - Click **New +** and select **Blueprint**.
+   - Connect your GitHub repository. Render will automatically parse `render.yaml`.
+
+3. **Configure Environment Variables**:
+   - In the service configuration prompt, provide your `GEMINI_API_KEY`.
+   - Confirm `GEMINI_MODEL` defaults to `gemini-2.0-flash` (or your preferred active model) and `APP_ENV` is set to `production`.
+
+4. **Deploy**:
+   - Click **Apply**.
+   - Render automatically runs the build command:
+     ```bash
+     pip install -r backend/requirements.txt && npm install --prefix frontend && npm run build --prefix frontend
+     ```
+   - Render starts the application via:
+     ```bash
+     uvicorn app.main:app --host 0.0.0.0 --port $PORT --app-dir backend
+     ```
+   - Render monitors health via `/api/health`.
+
+5. **Verify Cold Start**:
+   - Free tier instances enter sleep mode after 15 minutes of inactivity. The initial cold request may take 30–50 seconds. Milo's frontend client incorporates an extended 60-second timeout to handle this gracefully.
 
 ---
 
-## Deployment & Links
+## Known Limitations
 
-- **GitHub Repository**: (Provide your repository URL here upon push)
-- **Live Deployment URL**: (Provide your Render service URL here upon deployment)
+- **Read-Only Architecture**: The assistant is strictly read-only; it cannot modify rows, cancel orders, process refunds, or alter order statuses.
+- **Listing Pagination Limit**: The `list_orders` tool caps return records at 25 items with a `truncated: true` flag to prevent context window saturation.
+- **Free Tier Cold Starts**: Render's free tier spins down after idle periods; the initial request requires cold-start spin-up time.
+
+---
+
+## Repository & Live Links
+
+- **GitHub Repository**: https://github.com/georgeb74/milo-order-intelligence *(replace with your public repo)*
+- **Live Deployment URL**: https://milo-torcue-ai.onrender.com *(replace with your active Render URL)*
+
