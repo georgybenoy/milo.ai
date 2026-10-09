@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="frontend/public/milo-logo.png" alt="Milo Logo" width="130" style="border-radius: 24px; box-shadow: 0 8px 32px rgba(180, 91, 255, 0.25);" />
+<img src="frontend/public/milo-logo-transparent.png" alt="Milo Logo" width="130" style="border-radius: 24px; box-shadow: 0 8px 32px rgba(180, 91, 255, 0.25);" />
 
 # Milo
 ### *Your orders, answered.*
@@ -76,7 +76,7 @@ Ask natural-language questions about orders, revenue, and customer spending with
 - 📊 **Transaction Metrics**: Compute order volume counts across fulfillment statuses (`Delivered`, `Cancelled`, `Returned`).
 - 🏆 **Customer Intelligence**: Aggregate and rank customer spend with automatic tie detection.
 - 🛡 **Robust Safety Guardrails**: Nonexistent IDs (`ORD-9999`) return structured not-found responses; out-of-scope requests ("refund my order") are politely declined.
-- 🎨 **Cinematic Glassmorphism UI**: Custom purple mountain backdrop, dark tokens (`#100B18`), glowing orb, custom logo tab favicon, and keyboard accessibility.
+- 🎨 **Cinematic Glassmorphism UI**: Custom purple mountain backdrop, dark tokens (`#100B18`), custom logo emblem, custom logo tab favicon, and keyboard accessibility.
 
 ### 🧪 Benchmark Queries & Verified Results
 
