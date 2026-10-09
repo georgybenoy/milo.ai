@@ -8,15 +8,19 @@ from typing import Any
 from .data_loader import get_orders
 
 
-def _format_inr(value: int | float) -> str:
+def _format_inr(value: int | float | Any) -> str:
     """Format number with Indian grouping and ₹ symbol.
     E.g. 112282 → '₹1,12,282'
     """
-    if isinstance(value, float) and value == int(value):
-        value = int(value)
+    try:
+        f_val = float(value)
+        if f_val == int(f_val):
+            value = int(f_val)
+    except (ValueError, TypeError):
+        pass
 
-    if isinstance(value, int):
-        s = str(value)
+    if isinstance(value, int) or (isinstance(value, float) and value.is_integer()):
+        s = str(int(value))
         if len(s) <= 3:
             return f"₹{s}"
         # Last 3 digits, then groups of 2

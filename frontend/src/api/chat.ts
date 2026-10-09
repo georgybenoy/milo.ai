@@ -1,4 +1,4 @@
-import { ChatResponse, HealthResponse } from '../types';
+import type { ChatResponse, HealthResponse } from '../types';
 
 const API_BASE = '/api';
 
