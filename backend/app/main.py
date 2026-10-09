@@ -14,7 +14,14 @@ from fastapi.responses import FileResponse
 from .config import CSV_PATH, GEMINI_MODEL
 from .data_loader import load_orders, get_orders, DatasetError
 from .schemas import ChatRequest, ChatResponse, HealthResponse
-from .agent import chat as agent_chat
+from .agent import (
+    chat as agent_chat,
+    MiloAgentError,
+    MiloClientError,
+    MiloSafetyError,
+    MiloProviderError,
+    MiloIterationLimitError,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -80,12 +87,32 @@ async def chat_endpoint(request: ChatRequest):
             reply=result["reply"],
             tool_used=result.get("tool_used"),
         )
-    except Exception as e:
-        logger.error(f"Chat error: {e}")
-        # Never expose stack traces or internal details to the client
+    except MiloClientError as e:
+        logger.warning(f"Client error in chat: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except MiloSafetyError as e:
+        logger.warning(f"Safety policy block: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail="The request could not be processed due to safety policies.",
+        )
+    except MiloProviderError as e:
+        logger.error(f"Provider error in chat: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="AI service is temporarily unavailable. Please try again later.",
+        )
+    except MiloIterationLimitError as e:
+        logger.error(f"Iteration limit error: {e}")
         raise HTTPException(
             status_code=500,
-            detail="An error occurred processing your request. Please try again.",
+            detail="Unable to complete the query within the allowed number of steps.",
+        )
+    except Exception as e:
+        logger.error(f"Unexpected chat error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred while processing your request.",
         )
 
 
