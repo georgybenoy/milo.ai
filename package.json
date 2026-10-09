@@ -7,7 +7,7 @@
     "install:frontend": "npm install --prefix frontend",
     "install-all": "npm install && npm run install:frontend",
     "dev": "concurrently -n backend,frontend -c green,cyan \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:backend": "uvicorn app.main:app --reload --port 8000 --app-dir backend",
+    "dev:backend": "node -e \"const {spawn} = require('child_process'); const cmd = process.platform === 'win32' ? '.\\\\backend\\\\.venv\\\\Scripts\\\\python.exe' : 'python3'; spawn(cmd, ['-m', 'uvicorn', 'app.main:app', '--reload', '--port', '8000', '--app-dir', 'backend'], {stdio: 'inherit'});\"",
     "dev:frontend": "npm run dev --prefix frontend",
     "build:frontend": "npm run build --prefix frontend",
     "build": "npm run build:frontend",
