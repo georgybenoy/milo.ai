@@ -68,13 +68,15 @@ The agent provides two tightly scoped tools, with clear routing rules encoded di
 
 ## 5. Improvements with More Time
 
-1. **Server-Sent Events (SSE) Streaming**: Stream token chunks to provide sub-second time-to-first-token feedback.
-2. **Tool-Step Display**: Visual collapsible pills in the UI displaying intermediate function calls, arguments, and return payloads.
-3. **Interactive Data Tables & Pagination**: Rich data tables for `list_orders` results featuring client-side sorting, column filtering, pagination, and CSV export.
-4. **Session Persistence**: Storing multi-turn conversation history in SQLite or Redis to support conversational context across turns.
-5. **Authentication & Multi-Tenancy**: User authentication (OAuth2 / JWT) and tenant isolation for organizations uploading proprietary order databases.
-6. **Observability & Monitoring**: OpenTelemetry tracing and structured logging to track token usage, latency percentiles, and provider error rates.
-7. **Live Gemini Integration Tests**: Automated CI/CD pipeline tests executing live tool-calling assertions against Gemini test environments to catch upstream model behavior shifts.
+1. **Order Intelligence Dashboard**: Interactive KPI cards and charts showing order counts, recorded revenue, cancellations, returns, monthly trends, and category-wise performance, with date, city, and category filters.
+2. **Explainable AI Answers**: Answers backed by actual order records, calculation details, applied filters, and tool execution evidence, helping users verify Milo's responses instead of blindly trusting AI-generated numbers.
+3. **External CSV Upload**: Upload newer or alternative order datasets, validate and preview them, switch the active dataset, and immediately query the uploaded data through the chatbot.
+4. **Server-Sent Events (SSE) Streaming**: Stream token chunks to provide sub-second time-to-first-token feedback.
+5. **Interactive Data Tables & Pagination**: Rich data tables for `list_orders` results featuring client-side sorting, column filtering, pagination, and CSV export.
+6. **Session Persistence**: Storing multi-turn conversation history in SQLite or Redis to support conversational context across turns.
+7. **Authentication & Multi-Tenancy**: User authentication (OAuth2 / JWT) and tenant isolation for organizations managing proprietary order databases.
+8. **Observability & Monitoring**: OpenTelemetry tracing and structured logging to track token usage, latency percentiles, and provider error rates.
+9. **Live Gemini Integration Tests**: Automated CI/CD pipeline tests executing live tool-calling assertions against Gemini test environments to catch upstream model behavior shifts.
 
 ---
 
