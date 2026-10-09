@@ -1,0 +1,67 @@
+import React, { useRef, useEffect } from 'react';
+import { WelcomeScreen } from './WelcomeScreen';
+import { MessageBubble } from './MessageBubble';
+import { LoadingIndicator } from './LoadingIndicator';
+import { ErrorMessage } from './ErrorMessage';
+import type { ChatMessage } from '../types';
+
+interface ChatWindowProps {
+  messages: ChatMessage[];
+  isLoading: boolean;
+  error: string | null;
+  onSelectQuery: (query: string) => void;
+  onRetry?: () => void;
+}
+
+export const ChatWindow: React.FC<ChatWindowProps> = ({
+  messages,
+  isLoading,
+  error,
+  onSelectQuery,
+  onRetry,
+}) => {
+  const scrollEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading, error]);
+
+  if (messages.length === 0) {
+    return (
+      <div className="flex-1 overflow-y-auto px-4 py-6 scroll-smooth">
+        <WelcomeScreen onSelectQuery={onSelectQuery} />
+        {error && (
+          <div className="max-w-3xl mx-auto mt-4">
+            <ErrorMessage message={error} onRetry={onRetry} />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      role="log"
+      aria-live="polite"
+      className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 scroll-smooth"
+    >
+      {messages.map((msg) => (
+        <MessageBubble key={msg.id} message={msg} />
+      ))}
+
+      {isLoading && (
+        <div className="flex justify-start">
+          <LoadingIndicator />
+        </div>
+      )}
+
+      {error && (
+        <div className="flex justify-start">
+          <ErrorMessage message={error} onRetry={onRetry} />
+        </div>
+      )}
+
+      <div ref={scrollEndRef} aria-hidden="true" />
+    </div>
+  );
+};

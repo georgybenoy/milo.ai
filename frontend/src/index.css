@@ -1,3 +1,102 @@
 @import "tailwindcss";
 
-/* Milo Design Tokens — to be implemented in Phase 2 (Frontend) */
+@theme {
+  --color-bg-base: #100B18;
+  --color-shell: #17121F;
+  --color-sidebar: #15111C;
+  --color-surface: #21172D;
+  --color-glass: #2B2037;
+  --color-text-main: #F6F0FA;
+  --color-text-secondary: #B8ACBF;
+  --color-text-muted: #8D8197;
+  --color-border-subtle: #493653;
+  --color-accent: #B45BFF;
+  --color-lavender: #D19AFF;
+  --color-blue-accent: #6E9BFF;
+  --color-success: #53D6A0;
+  --color-error: #FF777F;
+  --color-warning: #F2C66D;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background-color: #100B18;
+  color: #F6F0FA;
+  overflow-x: hidden;
+}
+
+/* Tabular numerals for currency values */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Glassmorphism translucent shell */
+.glass-shell {
+  background: rgba(23, 18, 31, 0.90);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(209, 154, 255, 0.15);
+  box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* Fallback for browsers that do not support backdrop-filter */
+@supports not (backdrop-filter: blur(20px)) {
+  .glass-shell {
+    background: #17121F;
+  }
+}
+
+/* Glowing orb */
+.glowing-orb {
+  background: radial-gradient(circle, #D19AFF 0%, #B45BFF 60%, transparent 100%);
+  filter: drop-shadow(0 0 10px rgba(180, 91, 255, 0.75));
+}
+
+/* Wallpaper container with CSS mountain fallback */
+.wallpaper-bg {
+  background-color: #100B18;
+  background-image:
+    linear-gradient(to bottom, rgba(16, 11, 24, 0.45), rgba(16, 11, 24, 0.85)),
+    url('/wallpaper.webp'),
+    linear-gradient(135deg, #100B18 0%, #21172D 50%, #493653 100%);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Smooth accessible transitions */
+*, *::before, *::after {
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Custom sleek scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(73, 54, 83, 0.5);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(180, 91, 255, 0.5);
+}
