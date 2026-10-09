@@ -48,6 +48,7 @@ async def main():
         except Exception as e:
             print(f"ERROR: {e}")
         print(f"==================================================\n")
+        await asyncio.sleep(6)
 
 
 if __name__ == "__main__":

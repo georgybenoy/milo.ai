@@ -80,7 +80,7 @@ async def test_tool_dispatched_and_final_text_produced():
     assert len(turn_2_contents) == 3
     assert turn_2_contents[0].role == "user"
     assert turn_2_contents[1].role == "model"
-    assert turn_2_contents[2].role == "tool"
+    assert turn_2_contents[2].role == "user"
 
 
 @pytest.mark.asyncio

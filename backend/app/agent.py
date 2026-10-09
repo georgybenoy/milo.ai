@@ -180,10 +180,10 @@ async def chat(
                 )
             )
 
-        # Append tool response turn to conversation contents
+        # Append tool response turn to conversation contents (Google GenAI API expects role='user' for function responses)
         contents.append(
             types.Content(
-                role="tool",
+                role="user",
                 parts=function_response_parts,
             )
         )
