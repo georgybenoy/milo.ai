@@ -17,7 +17,7 @@ Ask natural-language questions about orders, revenue, and customer spending with
 [![Tests](https://img.shields.io/badge/Tests-64%20Passing-53D6A0?style=for-the-badge&logo=pytest&logoColor=white)](#-running-tests)
 [![Deployment](https://img.shields.io/badge/Render-Live-46E3B7?style=for-the-badge&logo=render&logoColor=black)](https://milo-ai-tlx1.onrender.com)
 
-[**🌐 Live Application**](https://milo-ai-tlx1.onrender.com) • [**📁 GitHub Repository**](https://github.com/georgybenoy/milo.ai) • [**📝 Technical Writeup**](./WRITEUP.md)
+[**💻 Localhost Setup**](#-localhost-setup--running-guide) • [**🌐 Live Application**](https://milo-ai-tlx1.onrender.com) • [**📁 GitHub Repository**](https://github.com/georgybenoy/milo.ai) • [**📝 Technical Writeup**](./WRITEUP.md)
 
 </div>
 
@@ -329,42 +329,148 @@ backend/tests/test_tools.py::TestDispatchTool::test_dispatch_invalid_args_type P
 
 ---
 
-## ☁ Render Deployment Steps
+## 💻 Localhost Setup & Running Guide
 
-Milo is pre-configured for single-service deployment on Render using [`render.yaml`](./render.yaml).
+Follow this guide to run Milo completely on your local machine (`http://localhost:5173` or `http://localhost:8000`).
 
-1. **Push Code to GitHub**:
-   Ensure all changes are pushed to your public GitHub repository:
-   ```powershell
-   git remote add origin https://github.com/georgybenoy/milo.ai.git
-   git branch -M main
-   git push -u origin main
-   ```
+### 1. Prerequisites Check
+Ensure you have the following installed on your machine:
+- **Python**: `3.10+` (Verify with `python --version`)
+- **Node.js**: `v18+` or `v20+` (Verify with `node --version`)
+- **npm**: `v9+` or `v10+` (Verify with `npm --version`)
+- **Git** (Verify with `git --version`)
 
-2. **Connect to Render**:
-   - Navigate to [Render Dashboard](https://dashboard.render.com/).
-   - Click **New +** and select **Blueprint** (or **Web Service**).
-   - Connect your GitHub repository (`georgybenoy/milo.ai`).
+---
 
-3. **Configure Build & Start Commands (if manual)**:
-   - **Build Command**:
-     ```bash
-     pip install -r backend/requirements.txt && npm install --prefix frontend && npm run build --prefix frontend
-     ```
-   - **Start Command**:
-     ```bash
-     uvicorn app.main:app --host 0.0.0.0 --port $PORT --app-dir backend
-     ```
+### 2. Step-by-Step Installation
 
-4. **Set Environment Variables in Render**:
-   In the **Environment** tab of your service settings, configure:
-   - `GEMINI_API_KEY`: *(Your Google AI Studio API key)*
-   - `GEMINI_MODEL`: `gemini-flash-lite-latest` (or `gemini-2.0-flash`)
-   - `APP_ENV`: `production`
+Clone the repository and install all dependencies:
 
-5. **Deploy & Health Check**:
-   - Render verifies health at `/api/health`.
-   - Free tier instances spin down after 15 minutes of inactivity; the initial cold request may take 30–50s. The frontend client includes an extended 60s timeout to handle this gracefully.
+```powershell
+# 1. Clone the repository
+git clone https://github.com/georgybenoy/milo.ai.git
+cd milo.ai
+
+# 2. Create the Python virtual environment inside backend/
+python -m venv backend/.venv
+
+# 3. Activate the virtual environment
+# Windows PowerShell:
+.\backend\.venv\Scripts\Activate.ps1
+# macOS / Linux:
+# source backend/.venv/bin/activate
+
+# 4. Install backend Python dependencies
+pip install -r backend/requirements.txt
+
+# 5. Install root and frontend dependencies
+npm install
+npm install --prefix frontend
+```
+
+---
+
+### 3. Environment Variable Configuration
+
+Create your private `.env` file in the project root:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Open `.env` in your editor and provide your Gemini credentials:
+
+```dotenv
+GEMINI_API_KEY=your_actual_gemini_api_key_here
+GEMINI_MODEL=gemini-flash-lite-latest
+APP_ENV=development
+```
+
+> [!TIP]
+> Get a free API key from [Google AI Studio](https://aistudio.google.com/app/apikey). The `.env` file is git-ignored and stays strictly on your local machine.
+
+---
+
+### 4. Running the Local Development Servers
+
+You have three options for running locally:
+
+#### ⚡ Option A: Single-Command Concurrent Mode (Recommended)
+
+Run both the FastAPI backend and Vite frontend together in a single terminal:
+
+```powershell
+npm run dev
+```
+
+- **Frontend UI**: [http://localhost:5173](http://localhost:5173) (Vite dev server with hot reload and automatic `/api` proxy)
+- **Backend API**: [http://localhost:8000](http://localhost:8000)
+
+*(The root script automatically locates your virtual environment's Python executable).*
+
+#### 🖥 Option B: Running in Separate Terminals
+
+If you prefer dedicated terminal windows for backend and frontend logs:
+
+**Terminal 1 — Backend API**:
+```powershell
+.\backend\.venv\Scripts\Activate.ps1
+uvicorn app.main:app --reload --port 8000 --app-dir backend
+```
+
+**Terminal 2 — Frontend UI**:
+```powershell
+npm run dev --prefix frontend
+```
+Visit **[http://localhost:5173](http://localhost:5173)** in your browser.
+
+#### 📦 Option C: Production Single-Port Mode (One Port)
+
+Build the frontend bundle and serve everything (UI + API) directly from FastAPI on a single port:
+
+```powershell
+# Build React SPA into frontend/dist
+npm run build
+
+# Start FastAPI serving both API and static frontend
+.\backend\.venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --app-dir backend
+```
+Visit **[http://localhost:8000](http://localhost:8000)** in your browser.
+
+---
+
+### 5. Verifying Localhost Health & Connectivity
+
+You can verify that your local backend and dataset are running properly via PowerShell:
+
+```powershell
+# Check health status
+Invoke-RestMethod -Uri "http://localhost:8000/api/health"
+
+# Expected Output:
+# status : ok
+# data_loaded : True
+# ai_configured : True
+
+# Check dataset metadata
+Invoke-RestMethod -Uri "http://localhost:8000/api/dataset"
+
+# Expected Output:
+# record_count : 60
+# start_date   : 2026-06-01
+# end_date     : 2026-09-28
+```
+
+---
+
+### 6. Localhost Troubleshooting
+
+| Symptom | Cause | Solution |
+|---|---|---|
+| `[vite] http proxy error: ECONNREFUSED` | The backend on port 8000 is not running yet | Start the backend using Option A (`npm run dev`) or Option B |
+| `Activate.ps1 cannot be loaded because running scripts is disabled` | PowerShell ExecutionPolicy restriction | Run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned` |
+| `GEMINI_API_KEY is not set` | Missing `.env` file | Copy `.env.example` to `.env` in the root folder and add your key |
+| `Port 8000 already in use` | Another process is occupying the port | Run `Stop-Process -Id (Get-NetTCPConnection -LocalPort 8000).OwningProcess -Force` |
 
 ---
 
