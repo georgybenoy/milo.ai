@@ -289,7 +289,7 @@ Milo is pre-configured for seamless single-service deployment on Render using [`
 1. **Push Code to GitHub**:
    Ensure all changes are committed and pushed to a public GitHub repository:
    ```powershell
-   git remote add origin https://github.com/<your-username>/<your-repo-name>.git
+   git remote add origin https://github.com/georgybenoy/milo.ai.git
    git branch -M main
    git push -u origin main
    ```
@@ -330,6 +330,6 @@ Milo is pre-configured for seamless single-service deployment on Render using [`
 
 ## Repository & Live Links
 
-- **GitHub Repository**: https://github.com/georgeb74/milo-order-intelligence *(replace with your public repo)*
+- **GitHub Repository**: https://github.com/georgybenoy/milo.ai
 - **Live Deployment URL**: https://milo-torcue-ai.onrender.com *(replace with your active Render URL)*
 
