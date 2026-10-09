@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Sparkles, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
+import { Menu, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
 import type { HealthStatus } from '../types';
 
 interface HeaderProps {
@@ -39,15 +39,6 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <Menu className="w-5 h-5" />
         </button>
-
-        {/* Static Gemini Assistant Pill */}
-        <div
-          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#2B2037] border border-[#D19AFF]/25 text-xs font-medium text-[#F6F0FA] shadow-xs select-none"
-          title="Powered by Gemini Developer API native function calling"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-[#D19AFF]" />
-          <span>Gemini Assistant</span>
-        </div>
       </div>
 
       {/* Real-time Status Indicator */}

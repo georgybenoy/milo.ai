@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
-import { ArrowUp, Database } from 'lucide-react';
+import { ArrowUp } from 'lucide-react';
 
 export interface MessageComposerHandle {
   focusWithText: (text: string) => void;
@@ -60,13 +60,9 @@ export const MessageComposer = forwardRef<MessageComposerHandle, MessageComposer
 
     return (
       <div className="p-3 sm:p-4 border-t border-[#493653]/40 bg-[#17121F]/80 backdrop-blur-md">
-        {/* Top bar with Order data indicator */}
-        <div className="flex items-center justify-between px-2 pb-2">
-          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#21172D] border border-[#493653]/60 text-[11px] text-[#B8ACBF] select-none">
-            <Database className="w-3 h-3 text-[#D19AFF]" />
-            <span>Order data (read-only)</span>
-          </div>
-          {input.length > 1500 && (
+        {/* Character counter (only when approaching limit) */}
+        {input.length > 1500 && (
+          <div className="flex justify-end px-2 pb-1.5">
             <span
               className={`text-[11px] font-medium tabular-nums ${
                 input.length > 1950 ? 'text-[#FF777F]' : 'text-[#F2C66D]'
@@ -74,8 +70,8 @@ export const MessageComposer = forwardRef<MessageComposerHandle, MessageComposer
             >
               {input.length} / 2000
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Composer Input Surface */}
         <form
