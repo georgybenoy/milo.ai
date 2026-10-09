@@ -213,27 +213,14 @@ if _frontend_dist.is_dir():
     if assets_dir.is_dir():
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
-    # Serve logo if present
-    @app.get("/milo-logo.png")
-    async def logo():
-        logo_path = _frontend_dist / "milo-logo.png"
-        if logo_path.is_file():
-            return FileResponse(logo_path)
-        raise HTTPException(status_code=404)
-
-    # Serve favicon if present
-    @app.get("/favicon.ico")
-    async def favicon():
-        fav_path = _frontend_dist / "favicon.ico"
-        if fav_path.is_file():
-            return FileResponse(fav_path)
-        raise HTTPException(status_code=404)
-
-    # SPA catch-all fallback — never catch /api routes
+    # SPA catch-all fallback and root static file serving
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
         if full_path.startswith("api/") or full_path == "api":
             raise HTTPException(status_code=404, detail="Not Found")
+        target_file = _frontend_dist / full_path
+        if full_path and target_file.is_file():
+            return FileResponse(target_file)
         index_file = _frontend_dist / "index.html"
         if index_file.is_file():
             return FileResponse(index_file)
