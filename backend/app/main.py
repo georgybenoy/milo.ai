@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from .config import CSV_PATH, GEMINI_MODEL
-from .data_loader import load_orders, get_orders
+from .data_loader import load_orders, get_orders, DatasetError
 from .schemas import ChatRequest, ChatResponse, HealthResponse
 from .agent import chat as agent_chat
 
@@ -27,9 +27,10 @@ async def lifespan(app: FastAPI):
     try:
         df = load_orders(CSV_PATH)
         logger.info(f"Loaded {len(df)} orders successfully")
+    except DatasetError as e:
+        logger.error(f"Dataset integrity validation failed: {e}")
     except Exception as e:
-        logger.error(f"Failed to load orders: {e}")
-        raise
+        logger.error(f"Unexpected error loading orders: {e}")
     yield
 
 
@@ -54,9 +55,17 @@ async def health():
             orders_loaded=len(df),
             model=GEMINI_MODEL,
         )
-    except Exception:
+    except DatasetError as e:
+        logger.warning(f"Health check reporting data-not-ready: {e}")
         return HealthResponse(
-            status="unhealthy",
+            status="data-not-ready",
+            orders_loaded=0,
+            model=GEMINI_MODEL,
+        )
+    except Exception as e:
+        logger.error(f"Health check error: {e}")
+        return HealthResponse(
+            status="data-not-ready",
             orders_loaded=0,
             model=GEMINI_MODEL,
         )

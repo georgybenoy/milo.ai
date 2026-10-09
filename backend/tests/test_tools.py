@@ -1,23 +1,33 @@
-"""Tests for tool functions — all expected values computed from the CSV, not hardcoded."""
+"""Tests for deterministic tool functions (lookup_order and analyze_orders)."""
 
 import pandas as pd
-from backend.app.tools import (
-    lookup_order,
-    orders_by_status,
-    revenue,
-    top_customers,
-    orders_by_date_range,
-    orders_by_customer,
-    orders_by_city,
-    orders_by_category,
-    summary_stats,
-    _format_inr,
-)
+import pytest
+
+from app.tools import lookup_order, analyze_orders, dispatch_tool, _format_inr
+from app.data_loader import load_orders
+from app.config import CSV_PATH
+
+
+@pytest.fixture(scope="module", autouse=True)
+def init_dataset():
+    load_orders(CSV_PATH)
+
+
+@pytest.fixture(scope="module")
+def raw_df():
+    df = pd.read_csv(CSV_PATH, parse_dates=["order_date"])
+    df["_status"] = df["status"].str.strip().str.casefold()
+    df["_category"] = df["category"].str.strip().str.casefold()
+    df["_customer"] = df["customer_name"].str.strip().str.casefold()
+    return df
+
+
+# ──────────────────────────── Formatting Tests ────────────────────────────
 
 
 class TestFormatINR:
     def test_small_number(self):
-        assert _format_inr(599) == "₹599"
+        assert _format_inr(250) == "₹250"
 
     def test_four_digits(self):
         assert _format_inr(2397) == "₹2,397"
@@ -26,126 +36,229 @@ class TestFormatINR:
         assert _format_inr(112282) == "₹1,12,282"
 
     def test_large_number(self):
-        assert _format_inr(2199900) == "₹21,99,900"
+        assert _format_inr(12345678) == "₹1,23,45,678"
+
+
+# ──────────────────────────── lookup_order Tests ────────────────────────────
 
 
 class TestLookupOrder:
     def test_existing_order(self):
         result = lookup_order("ORD-1025")
-        assert "order" in result
-        assert result["order"]["customer_name"] == "Karthik Rao"
-        assert result["order"]["total_inr"] == "₹2,397"
+        assert result["success"] is True
+        assert result["found"] is True
+        order = result["order"]
+        assert order is not None
+        assert order["customer_name"] == "Karthik Rao"
+        assert order["city"] == "Kochi"
+        assert order["product"] == "Wireless Mouse"
+        assert order["total_inr"] == 2397
+        assert order["status"] == "delivered"
+        assert order["order_date"] == "2026-07-14"
 
-    def test_missing_order(self):
+    def test_nonexistent_order(self):
         result = lookup_order("ORD-9999")
-        assert "error" in result
+        assert result["success"] is True
+        assert result["found"] is False
+        assert result["order"] is None
+        assert "not found" in result["message"].lower()
+
+    def test_empty_order_id(self):
+        result = lookup_order("")
+        assert result["success"] is False
+        assert result["found"] is False
+        assert result["order"] is None
+
+    def test_whitespace_padded_order_id(self):
+        result = lookup_order("  ORD-1025  ")
+        assert result["success"] is True
+        assert result["found"] is True
+        assert result["order"]["order_id"] == "ORD-1025"
+
+    def test_case_insensitive_lookup(self):
+        result = lookup_order("ord-1025")
+        assert result["success"] is True
+        assert result["found"] is True
+        assert result["order"]["order_id"] == "ORD-1025"
 
 
-class TestOrdersByStatus:
-    def test_cancelled_count(self, orders_df):
-        """Cancelled orders count should match CSV computation."""
-        expected = len(orders_df[orders_df["_status"] == "cancelled"])
-        result = orders_by_status("cancelled")
-        assert result["count"] == expected
-        # Sanity check from spec: should be 7
+# ──────────────────────────── analyze_orders Tests ────────────────────────────
+
+
+class TestAnalyzeOrders:
+    def test_cancelled_count(self, raw_df):
+        expected_count = int((raw_df["_status"] == "cancelled").sum())
+        assert expected_count == 7  # Sanity check §0.3
+
+        result = analyze_orders(operation="count_orders", status="cancelled")
+        assert result["success"] is True
+        assert result["operation"] == "count_orders"
         assert result["count"] == 7
+        assert result["matched_count"] == 7
+        assert result["empty"] is False
+        assert result["applied_filters"] == {"status": "cancelled"}
 
-    def test_case_insensitive(self):
-        result = orders_by_status("CANCELLED")
-        assert result["count"] == 7
-
-
-class TestRevenue:
-    def test_electronics_august(self, orders_df):
-        """Electronics in Aug 2026 — computed from CSV."""
-        filtered = orders_df[
-            (orders_df["_category"] == "electronics")
-            & (orders_df["order_date"] >= pd.Timestamp("2026-08-01"))
-            & (orders_df["order_date"] <= pd.Timestamp("2026-08-31"))
-        ]
-        expected_count = len(filtered)
-        expected_revenue = int(filtered["total_inr"].sum())
-
-        result = revenue(
-            category="Electronics",
-            start_date="2026-08-01",
-            end_date="2026-08-31",
+    def test_electronics_august_revenue(self, raw_df):
+        # Sanity check §0.3: Electronics Aug 2026 = 4 orders, ₹27,189
+        mask = (
+            (raw_df["_category"] == "electronics")
+            & (raw_df["order_date"] >= pd.Timestamp("2026-08-01"))
+            & (raw_df["order_date"] <= pd.Timestamp("2026-08-31"))
         )
-        assert result["order_count"] == expected_count
-        assert result["total_revenue_raw"] == expected_revenue
-        # Sanity check from spec: 4 orders, ₹27,189
+        expected_revenue = int(raw_df.loc[mask, "total_inr"].sum())
+        expected_count = int(mask.sum())
         assert expected_count == 4
         assert expected_revenue == 27189
 
-    def test_total_revenue_all(self, orders_df):
-        expected = int(orders_df["total_inr"].sum())
-        result = revenue()
-        assert result["total_revenue_raw"] == expected
-
-
-class TestTopCustomers:
-    def test_top_1(self, orders_df):
-        """Top customer by total_inr — computed from CSV."""
-        grouped = orders_df.groupby("customer_name")["total_inr"].sum()
-        expected_name = grouped.idxmax()
-        expected_total = int(grouped.max())
-
-        result = top_customers(limit=1)
-        assert result["customers"][0]["customer_name"] == expected_name
-        assert result["customers"][0]["total_spent_raw"] == expected_total
-        # Sanity check from spec: Rohan Das, ₹1,12,282
-        assert expected_name == "Rohan Das"
-
-    def test_rohan_das_total(self, orders_df):
-        rohan = orders_df[orders_df["_customer"] == "rohan das"]
-        total = int(rohan["total_inr"].sum())
-        # Verify against spec value
-        assert total == 112282
-
-
-class TestOrdersByDateRange:
-    def test_august_electronics(self, orders_df):
-        result = orders_by_date_range(
+        result = analyze_orders(
+            operation="sum_revenue",
+            category="Electronics",
             start_date="2026-08-01",
             end_date="2026-08-31",
-            category="Electronics",
         )
-        assert result["count"] == 4
+        assert result["success"] is True
+        assert result["total_revenue_inr"] == 27189
+        assert result["matched_count"] == 4
+        assert result["empty"] is False
+
+    def test_top_customer(self, raw_df):
+        # Sanity check §0.3: Rohan Das, ₹1,12,282
+        grouped = raw_df.groupby("customer_name")["total_inr"].sum()
+        expected_top = grouped.idxmax()
+        expected_total = int(grouped.max())
+        assert expected_top == "Rohan Das"
+        assert expected_total == 112282
+
+        result = analyze_orders(operation="top_customer")
+        assert result["success"] is True
+        assert result["empty"] is False
+        assert len(result["top_customers"]) >= 1
+        top_1 = result["top_customers"][0]
+        assert top_1["customer_name"] == "Rohan Das"
+        assert top_1["total_spent_inr"] == 112282
+
+    def test_boundary_dates_inclusive(self, raw_df):
+        # Boundary dates 1 Aug and 31 Aug inclusive
+        aug_orders = raw_df[
+            (raw_df["order_date"] >= pd.Timestamp("2026-08-01"))
+            & (raw_df["order_date"] <= pd.Timestamp("2026-08-31"))
+        ]
+        expected_count = len(aug_orders)
+
+        result = analyze_orders(
+            operation="count_orders",
+            start_date="2026-08-01",
+            end_date="2026-08-31",
+        )
+        assert result["success"] is True
+        assert result["count"] == expected_count
+
+    def test_category_and_status_combined(self, raw_df):
+        mask = (raw_df["_category"] == "electronics") & (raw_df["_status"] == "delivered")
+        expected_count = int(mask.sum())
+        expected_rev = int(raw_df.loc[mask, "total_inr"].sum())
+
+        count_res = analyze_orders(
+            operation="count_orders",
+            category="Electronics",
+            status="delivered",
+        )
+        assert count_res["count"] == expected_count
+
+        rev_res = analyze_orders(
+            operation="sum_revenue",
+            category="Electronics",
+            status="delivered",
+        )
+        assert rev_res["total_revenue_inr"] == expected_rev
+
+    def test_empty_result(self):
+        result = analyze_orders(operation="count_orders", category="NonExistentCategory")
+        assert result["success"] is True
+        assert result["count"] == 0
+        assert result["empty"] is True
+
+        rev_res = analyze_orders(operation="sum_revenue", city="Atlantis")
+        assert rev_res["success"] is True
+        assert rev_res["total_revenue_inr"] == 0
+        assert rev_res["empty"] is True
+
+        cust_res = analyze_orders(operation="top_customer", city="Atlantis")
+        assert cust_res["success"] is True
+        assert cust_res["top_customers"] == []
+        assert cust_res["empty"] is True
+
+    def test_invalid_date_format(self):
+        result = analyze_orders(operation="count_orders", start_date="2026/08/01")
+        assert result["success"] is False
+        assert "invalid start_date" in result["error"].lower()
+
+        res_bad_cal = analyze_orders(operation="count_orders", end_date="2026-02-31")
+        assert res_bad_cal["success"] is False
+        assert "invalid calendar date" in res_bad_cal["error"].lower()
+
+    def test_start_greater_than_end_date(self):
+        result = analyze_orders(
+            operation="count_orders",
+            start_date="2026-09-01",
+            end_date="2026-08-01",
+        )
+        assert result["success"] is False
+        assert "cannot be greater than" in result["error"].lower()
+
+    def test_unsupported_operation(self):
+        result = analyze_orders(operation="invalid_op")
+        assert result["success"] is False
+        assert "unknown operation" in result["error"].lower()
+
+    def test_revenue_uses_total_inr_and_count_not_quantity_sum(self, raw_df):
+        total_rows = len(raw_df)  # 60
+        total_qty = int(raw_df["quantity"].sum())  # > 60
+        total_rev = int(raw_df["total_inr"].sum())
+
+        assert total_rows != total_qty, "Total rows must not equal total quantity"
+
+        count_res = analyze_orders(operation="count_orders")
+        assert count_res["count"] == total_rows
+        assert count_res["count"] != total_qty
+
+        rev_res = analyze_orders(operation="sum_revenue")
+        assert rev_res["total_revenue_inr"] == total_rev
+
+    def test_list_orders_truncation_and_fields(self):
+        result = analyze_orders(operation="list_orders")
+        assert result["success"] is True
+        assert result["total_matches"] == 60
+        assert result["matched_count"] == 60
+        assert result["truncated"] is True
+        assert len(result["orders"]) == 25
+        first_order = result["orders"][0]
+        assert "order_id" in first_order
+        assert "order_date" in first_order
+        assert "total_inr" in first_order
 
 
-class TestOrdersByCustomer:
-    def test_existing_customer(self):
-        result = orders_by_customer("Karthik Rao")
-        assert result["order_count"] > 0
-        assert result["customer_name"] == "Karthik Rao"
-
-    def test_missing_customer(self):
-        result = orders_by_customer("Nonexistent Person")
-        assert "error" in result
+# ──────────────────────────── dispatch_tool Tests ────────────────────────────
 
 
-class TestOrdersByCity:
-    def test_chennai(self, orders_df):
-        expected = len(orders_df[orders_df["_city"] == "chennai"])
-        result = orders_by_city("Chennai")
-        assert result["order_count"] == expected
+class TestDispatchTool:
+    def test_dispatch_lookup(self):
+        result = dispatch_tool("lookup_order", {"order_id": "ORD-1025"})
+        assert result["success"] is True
+        assert result["found"] is True
+        assert result["order"]["customer_name"] == "Karthik Rao"
 
-    def test_case_insensitive(self, orders_df):
-        result = orders_by_city("CHENNAI")
-        expected = len(orders_df[orders_df["_city"] == "chennai"])
-        assert result["order_count"] == expected
+    def test_dispatch_analyze(self):
+        result = dispatch_tool("analyze_orders", {"operation": "count_orders", "status": "cancelled"})
+        assert result["success"] is True
+        assert result["count"] == 7
 
+    def test_dispatch_unknown_tool(self):
+        result = dispatch_tool("unknown_magic_tool", {})
+        assert result["success"] is False
+        assert "unknown tool" in result["error"].lower()
 
-class TestOrdersByCategory:
-    def test_electronics(self, orders_df):
-        expected = len(orders_df[orders_df["_category"] == "electronics"])
-        result = orders_by_category("Electronics")
-        assert result["order_count"] == expected
-
-
-class TestSummaryStats:
-    def test_summary(self, orders_df):
-        result = summary_stats()
-        assert result["total_orders"] == 60
-        assert result["unique_customers"] == len(orders_df["customer_name"].unique())
-        assert result["total_revenue_raw"] == int(orders_df["total_inr"].sum())
+    def test_dispatch_invalid_args_type(self):
+        result = dispatch_tool("lookup_order", "not-a-dict")  # type: ignore
+        assert result["success"] is False
+        assert "dictionary" in result["error"].lower()
