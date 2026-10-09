@@ -484,5 +484,4 @@ Invoke-RestMethod -Uri "http://localhost:8000/api/dataset"
 
 ## 🔗 Repository & Live Links
 
-- **GitHub Repository**: [https://github.com/georgybenoy/milo.ai](https://github.com/georgybenoy/milo.ai)
 - **Live Deployment URL**: [https://milo-ai-tlx1.onrender.com](https://milo-ai-tlx1.onrender.com)

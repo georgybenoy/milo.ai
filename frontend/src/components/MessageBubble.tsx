@@ -33,7 +33,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
         {isUser ? (
           <User className="w-4 h-4" />
         ) : (
-          <div className="w-3.5 h-3.5 rounded-full glowing-orb"></div>
+          <img src="/favicon.png" alt="Milo" className="w-5 h-5 object-contain" />
         )}
       </div>
 

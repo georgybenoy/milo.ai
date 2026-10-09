@@ -37,10 +37,9 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 }) => {
   return (
     <div className="max-w-4xl mx-auto py-4 sm:py-8 px-2 sm:px-4 space-y-7 animate-fadeIn">
-      {/* Brand Hero */}
       <div className="text-center space-y-3.5">
-        <div className="inline-flex items-center justify-center p-1 rounded-full mb-1">
-          <div className="milo-orb-large shrink-0" aria-hidden="true" />
+        <div className="inline-flex items-center justify-center p-3 rounded-3xl bg-[#2B2037]/80 border border-[#D19AFF]/30 shadow-2xl shadow-[#B45BFF]/20 mb-2 backdrop-blur-md">
+          <img src="/favicon.png" alt="Milo Logo" className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-lg" />
         </div>
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-[#F6F0FA]">
           Your orders, <span className="text-[#D19AFF]">answered.</span>

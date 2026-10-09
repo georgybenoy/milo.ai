@@ -58,8 +58,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Brand Header */}
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-[#2B2037] border border-[#D19AFF]/30 flex items-center justify-center shadow-md shadow-[#B45BFF]/10 shrink-0">
-                <div className="w-4 h-4 rounded-full glowing-orb"></div>
+              <div className="w-8 h-8 rounded-xl bg-[#2B2037] border border-[#D19AFF]/30 flex items-center justify-center shadow-md shadow-[#B45BFF]/10 shrink-0 overflow-hidden">
+                <img src="/favicon.png" alt="Milo Logo" className="w-6 h-6 object-contain" />
               </div>
               <div>
                 <h2 className="text-base font-bold text-[#F6F0FA] tracking-tight leading-none">
