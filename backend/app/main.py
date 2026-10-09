@@ -1,19 +1,22 @@
 """
 Milo — FastAPI application.
-Serves the API and the built React frontend.
+Serves the chat API, dataset metadata, health checks, and built React frontend.
 """
 
+import json
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Request, HTTPException, status
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 
-from .config import CSV_PATH, GEMINI_MODEL
-from .data_loader import load_orders, get_orders, DatasetError
-from .schemas import ChatRequest, ChatResponse, HealthResponse
+from .config import CSV_PATH, GEMINI_API_KEY, APP_ENV
+from .data_loader import load_orders, get_orders, get_dataset_metadata, DatasetError
+from .schemas import ChatRequest, ChatResponse, HealthResponse, DatasetInfo
 from .agent import (
     chat as agent_chat,
     MiloAgentError,
@@ -24,20 +27,26 @@ from .agent import (
 )
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("milo.server")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load CSV at startup — once, kept in memory."""
-    logger.info(f"Loading orders from {CSV_PATH}")
+    """Load and validate dataset once at startup; store status in app state."""
+    logger.info("Initializing dataset at startup...")
+    app.state.dataset_loaded = False
+    app.state.dataset_metadata = None
+
     try:
-        df = load_orders(CSV_PATH)
-        logger.info(f"Loaded {len(df)} orders successfully")
+        load_orders(CSV_PATH)
+        app.state.dataset_loaded = True
+        app.state.dataset_metadata = get_dataset_metadata()
+        logger.info("Dataset loaded and validated successfully.")
     except DatasetError as e:
-        logger.error(f"Dataset integrity validation failed: {e}")
+        logger.error(f"Dataset integrity validation failed at startup: {e}")
     except Exception as e:
-        logger.error(f"Unexpected error loading orders: {e}")
+        logger.error(f"Unexpected startup error loading dataset: {e}")
+
     yield
 
 
@@ -48,107 +57,184 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ──────────────────────────── CORS ────────────────────────────
+# Only enabled for local Vite development server when APP_ENV is development
+if APP_ENV == "development":
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+
+# ──────────────────────────── Exception Handlers ────────────────────────────
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Return structured 422 error response in {reply: null, error: ...} shape."""
+    logger.warning(f"Validation error on {request.url.path}: {exc.errors()}")
+    if request.url.path.startswith("/api/chat"):
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={"reply": None, "error": "Invalid request: message must be a non-empty string up to 2000 characters."},
+        )
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": exc.errors()},
+    )
+
+
+@app.exception_handler(json.JSONDecodeError)
+async def json_decode_exception_handler(request: Request, exc: json.JSONDecodeError):
+    """Handle malformed JSON payloads."""
+    logger.warning(f"Malformed JSON on {request.url.path}")
+    if request.url.path.startswith("/api/chat"):
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"reply": None, "error": "Malformed JSON payload."},
+        )
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={"detail": "Malformed JSON payload."},
+    )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global catch-all exception handler that hides internal stack traces."""
+    logger.error(f"Unhandled exception on {request.url.path}: {exc}", exc_info=True)
+    if request.url.path.startswith("/api/chat"):
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"reply": None, "error": "An internal error occurred. Please try again."},
+        )
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "Internal server error."},
+    )
+
 
 # ──────────────────────────── API Routes ────────────────────────────
 
 
 @app.get("/api/health", response_model=HealthResponse)
 async def health():
-    """Health check endpoint."""
-    try:
-        df = get_orders()
-        return HealthResponse(
-            status="healthy",
-            orders_loaded=len(df),
-            model=GEMINI_MODEL,
+    """Health check endpoint. Reports status, data readiness, and whether AI key is configured."""
+    data_loaded = getattr(app.state, "dataset_loaded", False)
+    ai_configured = bool(GEMINI_API_KEY and GEMINI_API_KEY.strip())
+
+    return HealthResponse(
+        status="ok" if data_loaded else "data-not-ready",
+        data_loaded=data_loaded,
+        ai_configured=ai_configured,
+    )
+
+
+@app.get("/api/dataset", response_model=DatasetInfo)
+async def dataset():
+    """Expose dataset metadata (record count, start date, end date) for the frontend sidebar."""
+    if not getattr(app.state, "dataset_loaded", False):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Dataset is not loaded or not ready.",
         )
-    except DatasetError as e:
-        logger.warning(f"Health check reporting data-not-ready: {e}")
-        return HealthResponse(
-            status="data-not-ready",
-            orders_loaded=0,
-            model=GEMINI_MODEL,
-        )
-    except Exception as e:
-        logger.error(f"Health check error: {e}")
-        return HealthResponse(
-            status="data-not-ready",
-            orders_loaded=0,
-            model=GEMINI_MODEL,
-        )
+
+    metadata = getattr(app.state, "dataset_metadata", None)
+    if not metadata:
+        metadata = get_dataset_metadata()
+
+    return DatasetInfo(
+        record_count=metadata["record_count"],
+        start_date=metadata["min_order_date"],
+        end_date=metadata["max_order_date"],
+    )
 
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
-    """Process a chat message through the Milo agent."""
+    """Process user message through Milo agent. Returns {reply, error}."""
+    if not getattr(app.state, "dataset_loaded", False):
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"reply": None, "error": "Order dataset is not ready. Please check server logs."},
+        )
+
     try:
         result = await agent_chat(request.message)
         return ChatResponse(
             reply=result["reply"],
-            tool_used=result.get("tool_used"),
+            error=None,
         )
-    except MiloClientError as e:
-        logger.warning(f"Client error in chat: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except MiloSafetyError as e:
-        logger.warning(f"Safety policy block: {e}")
-        raise HTTPException(
-            status_code=400,
-            detail="The request could not be processed due to safety policies.",
+    except MiloClientError as exc:
+        logger.warning(f"Milo client error: {exc}")
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"reply": None, "error": str(exc)},
         )
-    except MiloProviderError as e:
-        logger.error(f"Provider error in chat: {e}")
-        raise HTTPException(
-            status_code=503,
-            detail="AI service is temporarily unavailable. Please try again later.",
+    except MiloSafetyError as exc:
+        logger.warning(f"Milo safety error: {exc}")
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"reply": None, "error": "The request could not be processed due to safety policies."},
         )
-    except MiloIterationLimitError as e:
-        logger.error(f"Iteration limit error: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Unable to complete the query within the allowed number of steps.",
+    except MiloProviderError as exc:
+        logger.error(f"Milo provider error: {exc}")
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"reply": None, "error": "AI service is temporarily unavailable. Please try again later."},
         )
-    except Exception as e:
-        logger.error(f"Unexpected chat error: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="An unexpected error occurred while processing your request.",
+    except MiloIterationLimitError as exc:
+        logger.error(f"Milo iteration limit error: {exc}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"reply": None, "error": "Unable to complete request within allowed processing steps."},
+        )
+    except Exception as exc:
+        logger.error(f"Unexpected chat endpoint error: {exc}", exc_info=True)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"reply": None, "error": "An unexpected error occurred processing your request."},
         )
 
 
-# ──────────────────────────── Static Files (React build) ────────────
+# ──────────────────────────── Static Files & SPA Fallback ────────────
 
-
-# Serve the React build if it exists
 _frontend_dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
 
-if _frontend_dist.exists():
-    # Serve static assets (JS, CSS, images)
-    app.mount(
-        "/assets",
-        StaticFiles(directory=_frontend_dist / "assets"),
-        name="static-assets",
-    )
+if _frontend_dist.is_dir():
+    # Mount assets directory
+    assets_dir = _frontend_dist / "assets"
+    if assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
-    # Serve other static files in dist root (favicon, etc.)
-    @app.get("/favicon.ico")
-    async def favicon():
-        favicon_path = _frontend_dist / "favicon.ico"
-        if favicon_path.exists():
-            return FileResponse(favicon_path)
-        raise HTTPException(status_code=404)
-
+    # Serve logo if present
     @app.get("/milo-logo.png")
     async def logo():
         logo_path = _frontend_dist / "milo-logo.png"
-        if logo_path.exists():
+        if logo_path.is_file():
             return FileResponse(logo_path)
         raise HTTPException(status_code=404)
 
-    # SPA fallback — serve index.html for all unmatched routes
+    # Serve favicon if present
+    @app.get("/favicon.ico")
+    async def favicon():
+        fav_path = _frontend_dist / "favicon.ico"
+        if fav_path.is_file():
+            return FileResponse(fav_path)
+        raise HTTPException(status_code=404)
+
+    # SPA catch-all fallback — never catch /api routes
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        # Don't catch API routes
-        if full_path.startswith("api/"):
-            raise HTTPException(status_code=404)
-        return FileResponse(_frontend_dist / "index.html")
+        if full_path.startswith("api/") or full_path == "api":
+            raise HTTPException(status_code=404, detail="Not Found")
+        index_file = _frontend_dist / "index.html"
+        if index_file.is_file():
+            return FileResponse(index_file)
+        raise HTTPException(status_code=404, detail="Frontend build index not found")
