@@ -17,7 +17,7 @@ Ask natural-language questions about orders, revenue, and customer spending with
 [![Tests](https://img.shields.io/badge/Tests-64%20Passing-53D6A0?style=for-the-badge&logo=pytest&logoColor=white)](#-running-tests)
 [![Deployment](https://img.shields.io/badge/Render-Live-46E3B7?style=for-the-badge&logo=render&logoColor=black)](https://milo-ai-ttx1.onrender.com/)
 
-[**💻 Localhost Setup**](#-localhost-setup--running-guide) • [**🌐 Live Application**](https://milo-ai-ttx1.onrender.com/) • [**📁 GitHub Repository**](https://github.com/georgybenoy/milo.ai) • [**📝 Technical Writeup**](./WRITEUP.md)
+[**💻 Localhost Setup**](#-localhost-setup--running-guide) • [**🌐 Live Application**](https://milo-ai-ttx1.onrender.com/) • [**📝 Technical Writeup**](./WRITEUP.md)
 
 </div>
 
@@ -482,7 +482,6 @@ Invoke-RestMethod -Uri "http://localhost:8000/api/dataset"
 
 ---
 
-## 🔗 Repository & Live Links
+## 🔗 Live Application
 
 - **Live Deployment URL**: [https://milo-ai-ttx1.onrender.com/](https://milo-ai-ttx1.onrender.com/)
-- **GitHub Repository**: [https://github.com/georgybenoy/milo.ai](https://github.com/georgybenoy/milo.ai)
