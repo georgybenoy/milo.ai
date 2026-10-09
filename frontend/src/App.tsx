@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AppShell } from './components/AppShell';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { ChatWindow } from './components/ChatWindow';
-import { MessageComposer } from './components/MessageComposer';
+import { MessageComposer, type MessageComposerHandle } from './components/MessageComposer';
 import { fetchHealth, fetchDatasetInfo, postChatMessage } from './api/client';
 import type { ChatMessage, HealthStatus, DatasetInfo } from './types';
 
@@ -22,6 +22,10 @@ export default function App() {
 
   // Responsive mobile drawer state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Abort controller ref for in-flight requests (for New Chat cancellation)
+  const activeAbortControllerRef = useRef<AbortController | null>(null);
+  const composerRef = useRef<MessageComposerHandle>(null);
 
   // Poll health endpoint
   const pollHealth = useCallback(async () => {
@@ -77,6 +81,11 @@ export default function App() {
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
 
+    // Abort previous in-flight request if any
+    activeAbortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    activeAbortControllerRef.current = abortController;
+
     setError(null);
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}-user`,
@@ -89,7 +98,13 @@ export default function App() {
     setIsLoading(true);
 
     try {
-      const res = await postChatMessage(text.trim());
+      const res = await postChatMessage(text.trim(), abortController.signal);
+
+      // If aborted during request, ignore late response
+      if (abortController.signal.aborted) {
+        return;
+      }
+
       if (res.error) {
         setError(res.error);
       } else if (res.reply) {
@@ -101,17 +116,30 @@ export default function App() {
         };
         setMessages((prev) => [...prev, assistantMsg]);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send message');
+    } catch (err: unknown) {
+      if (!abortController.signal.aborted) {
+        setError(err instanceof Error ? err.message : 'I could not reach Milo. Check your connection and try again.');
+      }
     } finally {
-      setIsLoading(false);
+      if (!abortController.signal.aborted) {
+        setIsLoading(false);
+      }
     }
   };
 
-  // Start a fresh conversation
+  // Start a fresh conversation (aborts in-flight request, clears chat)
   const handleNewChat = () => {
+    activeAbortControllerRef.current?.abort();
+    activeAbortControllerRef.current = null;
     setMessages([]);
     setError(null);
+    setIsLoading(false);
+  };
+
+  const handleFocusComposer = (prefill?: string) => {
+    if (composerRef.current) {
+      composerRef.current.focusWithText(prefill || '');
+    }
   };
 
   return (
@@ -140,14 +168,20 @@ export default function App() {
             isLoading={isLoading}
             error={error}
             onSelectQuery={handleSendMessage}
+            onFocusComposer={handleFocusComposer}
             onRetry={() => {
-              if (messages.length > 0 && messages[messages.length - 1].role === 'user') {
-                handleSendMessage(messages[messages.length - 1].content);
+              if (messages.length > 0) {
+                // Find last user message
+                const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+                if (lastUser) {
+                  handleSendMessage(lastUser.content);
+                }
               }
             }}
           />
 
           <MessageComposer
+            ref={composerRef}
             onSendMessage={handleSendMessage}
             isLoading={isLoading}
           />

@@ -58,6 +58,14 @@ body {
   filter: drop-shadow(0 0 10px rgba(180, 91, 255, 0.75));
 }
 
+.milo-orb-large {
+  width: 76px;
+  height: 76px;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 35% 30%, #F6F0FA 0%, #D19AFF 35%, #B45BFF 70%, #6E9BFF 100%);
+  box-shadow: 0 0 35px rgba(180, 91, 255, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+}
+
 /* Wallpaper container with CSS mountain fallback */
 .wallpaper-bg {
   background-color: #100B18;

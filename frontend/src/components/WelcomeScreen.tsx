@@ -5,77 +5,59 @@ import { SuggestedQueryCard } from './SuggestedQueryCard';
 
 interface WelcomeScreenProps {
   onSelectQuery: (query: string) => void;
+  onFocusComposer?: (prefill?: string) => void;
 }
 
-const SUGGESTIONS = [
+const FOUR_SUGGESTIONS = [
   {
-    title: 'Lookup Specific Order',
-    query: 'Where is order ORD-1025?',
+    title: 'Find an order',
+    query: 'What is the status of order ORD-1025?',
     category: 'Status',
   },
   {
-    title: 'Cancellation Metrics',
+    title: 'Cancelled orders',
     query: 'How many orders were cancelled?',
-    category: 'Analytics',
+    category: 'Count',
   },
   {
-    title: 'Category Revenue',
-    query: 'What was our revenue from Electronics in August 2026?',
+    title: 'August revenue',
+    query: 'What was the total revenue from Electronics in August?',
     category: 'Revenue',
   },
   {
-    title: 'Top Customer Ranking',
-    query: 'Who is our top customer by total spend?',
-    category: 'Customers',
+    title: 'Top customer',
+    query: 'Which customer has spent the most?',
+    category: 'Ranking',
   },
 ];
 
-export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSelectQuery }) => {
+export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
+  onSelectQuery,
+  onFocusComposer,
+}) => {
   return (
-    <div className="max-w-3xl mx-auto py-6 px-4 space-y-8 animate-fadeIn">
+    <div className="max-w-4xl mx-auto py-4 sm:py-8 px-2 sm:px-4 space-y-7 animate-fadeIn">
       {/* Brand Hero */}
-      <div className="text-center space-y-3">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#2B2037] border border-[#D19AFF]/30 shadow-lg shadow-[#B45BFF]/10 mb-1">
-          <div className="w-7 h-7 rounded-full glowing-orb"></div>
+      <div className="text-center space-y-3.5">
+        <div className="inline-flex items-center justify-center p-1 rounded-full mb-1">
+          <div className="milo-orb-large shrink-0" aria-hidden="true" />
         </div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#F6F0FA]">
-          Your orders, answered.
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-[#F6F0FA]">
+          Your orders, <span className="text-[#D19AFF]">answered.</span>
         </h1>
-        <p className="text-sm text-[#B8ACBF] max-w-lg mx-auto leading-relaxed">
-          Ask natural-language questions about orders, revenue breakdowns, top customers, and delivery status.
+        <p className="text-sm sm:text-base text-[#B8ACBF] max-w-lg mx-auto leading-relaxed">
+          Ask about order status, revenue, and customer spending.
         </p>
       </div>
 
-      {/* Feature capabilities */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <FeatureCard
-          icon={Package}
-          title="Order Tracking"
-          description="Instant status, items, dates, and amounts for any order."
-          badge="Lookup"
-        />
-        <FeatureCard
-          icon={TrendingUp}
-          title="Revenue Analytics"
-          description="Accurate INR totals filtered by category, month, or city."
-          badge="Deterministic"
-        />
-        <FeatureCard
-          icon={Users}
-          title="Customer Insights"
-          description="Find highest spenders and order volume per customer."
-          badge="Rankings"
-        />
-      </div>
-
-      {/* Suggested prompts */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#8D8197]">
+      {/* Four Suggested Query Cards (Single row on desktop, wrapping on smaller screens) */}
+      <div className="space-y-2.5">
+        <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#8D8197] px-1">
           <Sparkles className="w-3.5 h-3.5 text-[#D19AFF]" />
-          <span>Suggested Inquiries</span>
+          <span>Suggested Questions</span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {SUGGESTIONS.map((item) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          {FOUR_SUGGESTIONS.map((item) => (
             <SuggestedQueryCard
               key={item.query}
               title={item.title}
@@ -84,6 +66,42 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSelectQuery }) =
               onSelect={onSelectQuery}
             />
           ))}
+        </div>
+      </div>
+
+      {/* Three Feature Cards with real interactive behavior */}
+      <div className="space-y-2.5 pt-1">
+        <div className="text-xs font-semibold uppercase tracking-wider text-[#8D8197] px-1">
+          <span>Capabilities</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <FeatureCard
+            icon={Package}
+            title="Order Lookup"
+            description="Query any order by its identifier to inspect status, items, date, and customer."
+            actionText="Check order"
+            onClick={() => {
+              if (onFocusComposer) {
+                onFocusComposer('What is the status of order ORD-');
+              } else {
+                onSelectQuery('What is the status of order ORD-1025?');
+              }
+            }}
+          />
+          <FeatureCard
+            icon={TrendingUp}
+            title="Revenue Analysis"
+            description="Calculate exact revenue totals deterministically across categories, months, or cities."
+            actionText="Sum revenue"
+            onClick={() => onSelectQuery('What was the total revenue across all orders?')}
+          />
+          <FeatureCard
+            icon={Users}
+            title="Customer Insights"
+            description="Identify top spenders and review aggregated customer transaction history."
+            actionText="View ranking"
+            onClick={() => onSelectQuery('Which customer has spent the most?')}
+          />
         </div>
       </div>
     </div>

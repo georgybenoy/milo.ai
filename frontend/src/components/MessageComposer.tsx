@@ -1,96 +1,124 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Send } from 'lucide-react';
+import React, { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { ArrowUp, Database } from 'lucide-react';
+
+export interface MessageComposerHandle {
+  focusWithText: (text: string) => void;
+}
 
 interface MessageComposerProps {
   onSendMessage: (message: string) => void;
   isLoading: boolean;
 }
 
-export const MessageComposer: React.FC<MessageComposerProps> = ({
-  onSendMessage,
-  isLoading,
-}) => {
-  const [input, setInput] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+export const MessageComposer = forwardRef<MessageComposerHandle, MessageComposerProps>(
+  ({ onSendMessage, isLoading }, ref) => {
+    const [input, setInput] = useState('');
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const trimmed = input.trim();
-  const canSubmit = trimmed.length > 0 && !isLoading && trimmed.length <= 2000;
+    const trimmed = input.trim();
+    const canSubmit = trimmed.length > 0 && !isLoading && trimmed.length <= 2000;
 
-  useEffect(() => {
-    if (!isLoading && textareaRef.current) {
-      textareaRef.current.focus();
-    }
-  }, [isLoading]);
+    useImperativeHandle(ref, () => ({
+      focusWithText: (text: string) => {
+        setInput(text);
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          // Move cursor to end
+          textareaRef.current.setSelectionRange(text.length, text.length);
+        }
+      },
+    }));
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canSubmit) return;
-    onSendMessage(trimmed);
-    setInput('');
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
-  };
+    useEffect(() => {
+      if (!isLoading && textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    }, [isLoading]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(e);
-    }
-  };
+    const handleSubmit = (e?: React.FormEvent) => {
+      if (e) e.preventDefault();
+      if (!canSubmit) return;
+      onSendMessage(trimmed);
+      setInput('');
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
+    };
 
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
-    // Auto resize
-    e.target.style.height = 'auto';
-    e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
-  };
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSubmit();
+      }
+    };
 
-  return (
-    <form
-      onSubmit={handleSubmit}
-      className="p-3 sm:p-4 border-t border-[#493653]/40 bg-[#17121F]/80 backdrop-blur-md"
-      aria-label="Send a message to Milo"
-    >
-      <div className="relative flex items-end gap-2 p-2 sm:p-2.5 rounded-2xl bg-[#2B2037]/70 border border-[#493653]/60 focus-within:border-[#B45BFF]/70 focus-within:ring-2 focus-within:ring-[#B45BFF]/30 transition-all shadow-inner">
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          disabled={isLoading}
-          rows={1}
-          placeholder="Ask a question about orders, revenue, or customers..."
-          maxLength={2000}
-          className="flex-1 max-h-40 bg-transparent text-sm text-[#F6F0FA] placeholder-[#8D8197] resize-none focus:outline-none py-1.5 px-2 leading-relaxed"
-          aria-label="Message input"
-        />
+    const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setInput(e.target.value);
+      e.target.style.height = 'auto';
+      e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
+    };
 
-        <div className="flex items-center gap-2 pb-0.5 pr-0.5 shrink-0">
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            aria-label="Send message"
-            className={`p-2.5 rounded-xl flex items-center justify-center transition-all ${
-              canSubmit
-                ? 'bg-[#B45BFF] hover:bg-[#D19AFF] text-white shadow-md shadow-[#B45BFF]/25 cursor-pointer hover:scale-105 active:scale-95'
-                : 'bg-[#493653]/40 text-[#8D8197] cursor-not-allowed'
-            } focus:outline-none focus:ring-2 focus:ring-[#B45BFF]`}
-          >
-            <Send className="w-4 h-4" />
-          </button>
+    return (
+      <div className="p-3 sm:p-4 border-t border-[#493653]/40 bg-[#17121F]/80 backdrop-blur-md">
+        {/* Top bar with Order data indicator */}
+        <div className="flex items-center justify-between px-2 pb-2">
+          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#21172D] border border-[#493653]/60 text-[11px] text-[#B8ACBF] select-none">
+            <Database className="w-3 h-3 text-[#D19AFF]" />
+            <span>Order data (read-only)</span>
+          </div>
+          {input.length > 1500 && (
+            <span
+              className={`text-[11px] font-medium tabular-nums ${
+                input.length > 1950 ? 'text-[#FF777F]' : 'text-[#F2C66D]'
+              }`}
+            >
+              {input.length} / 2000
+            </span>
+          )}
         </div>
-      </div>
 
-      <div className="flex items-center justify-between text-[11px] text-[#8D8197] px-2 pt-2">
-        <span className="hidden sm:inline-flex items-center gap-1">
-          <kbd className="px-1.5 py-0.5 rounded bg-[#2B2037] border border-[#493653]/60 text-[10px]">Enter</kbd> to send,
-          <kbd className="px-1.5 py-0.5 rounded bg-[#2B2037] border border-[#493653]/60 text-[10px]">Shift+Enter</kbd> for newline
-        </span>
-        <span className={`${input.length > 1800 ? 'text-[#FF777F]' : ''} ml-auto`}>
-          {input.length} / 2000
-        </span>
+        {/* Composer Input Surface */}
+        <form
+          onSubmit={handleSubmit}
+          className="relative flex items-end gap-2.5 p-2 sm:p-3 rounded-[20px] bg-[#2B2037]/75 border border-[#D19AFF]/25 focus-within:border-[#D19AFF]/80 focus-within:ring-2 focus-within:ring-[#B45BFF]/30 transition-all shadow-inner"
+        >
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            disabled={isLoading}
+            rows={1}
+            placeholder="Ask anything about your orders..."
+            maxLength={2000}
+            className="flex-1 max-h-40 bg-transparent text-sm text-[#F6F0FA] placeholder-[#8D8197] resize-none focus:outline-none py-1.5 px-2 leading-relaxed"
+            aria-label="Ask anything about your orders"
+          />
+
+          {/* Circular Purple Send Button (42px) with white up-arrow */}
+          <div className="pb-0.5 pr-0.5 shrink-0">
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              aria-label="Send message"
+              className={`w-[42px] h-[42px] rounded-full flex items-center justify-center transition-all duration-150 ${
+                canSubmit
+                  ? 'bg-[#B45BFF] hover:bg-[#D19AFF] text-white shadow-lg shadow-[#B45BFF]/35 cursor-pointer hover:scale-105 active:scale-95'
+                  : 'bg-[#493653]/40 text-[#8D8197] cursor-not-allowed opacity-60'
+              } focus:outline-none focus:ring-2 focus:ring-[#B45BFF] focus:ring-offset-2 focus:ring-offset-[#17121F]`}
+            >
+              <ArrowUp className="w-5 h-5 stroke-[2.5]" />
+            </button>
+          </div>
+        </form>
+
+        {/* Helper footer text */}
+        <p className="text-[11px] text-[#8D8197] text-center pt-2 select-none">
+          Answers are based on the supplied order dataset.
+        </p>
       </div>
-    </form>
-  );
-};
+    );
+  }
+);
+
+MessageComposer.displayName = 'MessageComposer';

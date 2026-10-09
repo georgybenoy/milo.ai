@@ -5,7 +5,7 @@ interface LoadingIndicatorProps {
 }
 
 export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
-  message = 'Milo is analyzing order data...',
+  message = 'Analysing orders...',
 }) => {
   return (
     <div
